@@ -255,6 +255,88 @@
             outline: none;
         }
 
+        .date-selection {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 15px;
+            background: white;
+            min-height: 120px;
+            position: relative;
+        }
+
+        .date-selection.focused {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .selected-dates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            min-height: 40px;
+        }
+
+        .date-tag {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .date-tag .remove-date {
+            background: rgba(255, 255, 255, 0.3);
+            border: none;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .date-input-area {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .date-input-area input[type="date"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .add-date-btn {
+            background: linear-gradient(45deg, #48bb78, #38a169);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .add-date-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .date-selection-hint {
+            color: #718096;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
         .btn {
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
@@ -375,41 +457,6 @@
             gap: 5px;
         }
 
-        .file-upload {
-            background: rgba(247, 250, 252, 0.8);
-            border: 2px dashed #cbd5e0;
-            border-radius: 15px;
-            padding: 30px;
-            text-align: center;
-            margin: 20px 0;
-            transition: all 0.3s ease;
-        }
-
-        .file-upload:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-        }
-
-        .file-upload.dragover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
-        }
-
-        .file-list {
-            margin-top: 20px;
-        }
-
-        .file-item {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 10px;
-            margin: 5px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
         .modal {
             display: none;
             position: fixed;
@@ -491,6 +538,15 @@
             .task-actions {
                 justify-content: center;
             }
+
+            .date-input-area {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .date-input-area input[type="date"] {
+                flex: none;
+            }
         }
     </style>
 </head>
@@ -503,7 +559,6 @@
                 <button class="nav-tab" onclick="showSection('class')">🏫 班級事務</button>
                 <button class="nav-tab" onclick="showSection('school')">🎯 學年事務</button>
                 <button class="nav-tab" onclick="showSection('course')">📚 課務提醒</button>
-                <button class="nav-tab" onclick="showSection('import')">📂 資料匯入</button>
             </div>
         </div>
 
@@ -533,8 +588,15 @@
                         <input type="text" id="classSubtitle" placeholder="輸入副標題">
                     </div>
                     <div class="form-group">
-                        <label>日期：</label>
-                        <input type="date" id="classDate">
+                        <label>選擇日期：</label>
+                        <div class="date-selection" id="classDateSelection">
+                            <div class="selected-dates" id="classSelectedDates"></div>
+                            <div class="date-input-area">
+                                <input type="date" id="classDateInput">
+                                <button type="button" class="add-date-btn" onclick="addDate('class')">新增日期</button>
+                            </div>
+                            <div class="date-selection-hint">可選擇多個日期，每個日期都會建立相同的事務</div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>詳細說明：</label>
@@ -563,8 +625,15 @@
                         <input type="text" id="schoolSubtitle" placeholder="輸入副標題">
                     </div>
                     <div class="form-group">
-                        <label>日期：</label>
-                        <input type="date" id="schoolDate">
+                        <label>選擇日期：</label>
+                        <div class="date-selection" id="schoolDateSelection">
+                            <div class="selected-dates" id="schoolSelectedDates"></div>
+                            <div class="date-input-area">
+                                <input type="date" id="schoolDateInput">
+                                <button type="button" class="add-date-btn" onclick="addDate('school')">新增日期</button>
+                            </div>
+                            <div class="date-selection-hint">可選擇多個日期，每個日期都會建立相同的事務</div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>詳細說明：</label>
@@ -637,19 +706,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- 資料匯入區 -->
-        <div id="import" class="content-section">
-            <h3 style="text-align: center; margin-bottom: 30px; color: #4a5568;">📂 資料匯入後台</h3>
-            <div class="file-upload" id="fileUpload">
-                <div style="font-size: 48px; margin-bottom: 20px;">📁</div>
-                <h3>拖拽檔案到此處或點擊選擇檔案</h3>
-                <p style="margin-top: 10px; color: #718096;">支援 Word (.docx)、Excel (.xlsx)、PDF、圖片、文字檔案</p>
-                <input type="file" id="fileInput" style="display: none;" multiple accept=".docx,.xlsx,.pdf,.jpg,.jpeg,.png,.gif,.txt,.csv">
-                <button class="btn" onclick="document.getElementById('fileInput').click()" style="margin-top: 20px;">選擇檔案</button>
-            </div>
-            <div class="file-list" id="fileList"></div>
-        </div>
     </div>
 
     <!-- 模態框 -->
@@ -670,18 +726,20 @@
             course: []
         };
         let grades = ['G12', 'G10', 'G7'];
-        let uploadedFiles = [];
+        let selectedDates = {
+            class: [],
+            school: []
+        };
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             renderCalendar();
             updateTaskLists();
-            setupFileUpload();
             
             // 設定預設日期為今天
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('classDate').value = today;
-            document.getElementById('schoolDate').value = today;
+            document.getElementById('classDateInput').value = today;
+            document.getElementById('schoolDateInput').value = today;
             document.getElementById('courseDate').value = today;
         });
 
@@ -696,6 +754,47 @@
             
             document.getElementById(sectionId).classList.add('active');
             event.target.classList.add('active');
+        }
+
+        // 日期選擇功能
+        function addDate(type) {
+            const dateInput = document.getElementById(`${type}DateInput`);
+            const date = dateInput.value;
+            
+            if (!date) {
+                alert('請選擇日期！');
+                return;
+            }
+            
+            if (selectedDates[type].includes(date)) {
+                alert('此日期已經選擇！');
+                return;
+            }
+            
+            selectedDates[type].push(date);
+            updateSelectedDates(type);
+            dateInput.value = '';
+        }
+
+        function removeDate(type, date) {
+            selectedDates[type] = selectedDates[type].filter(d => d !== date);
+            updateSelectedDates(type);
+        }
+
+        function updateSelectedDates(type) {
+            const container = document.getElementById(`${type}SelectedDates`);
+            let html = '';
+            
+            selectedDates[type].forEach(date => {
+                html += `
+                    <div class="date-tag">
+                        ${date}
+                        <button class="remove-date" onclick="removeDate('${type}', '${date}')">×</button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
         }
 
         // 日曆相關功能
@@ -822,35 +921,59 @@
         function addTask(type) {
             const title = document.getElementById(`${type}Title`).value.trim();
             const subtitle = document.getElementById(`${type}Subtitle`).value.trim();
-            const date = document.getElementById(`${type}Date`).value;
             const description = document.getElementById(`${type}Description`).value.trim();
-            const grade = type === 'course' ? document.getElementById('courseGrade').value : null;
             
-            if (!title || !date) {
-                alert('請填入標題和日期！');
+            if (!title) {
+                alert('請填入標題！');
                 return;
             }
             
-            const task = {
-                id: Date.now(),
-                title,
-                subtitle: subtitle || '無副標題',
-                date,
-                description: description || '無詳細說明',
-                completed: false,
-                grade: grade
-            };
+            let dates = [];
+            if (type === 'class' || type === 'school') {
+                if (selectedDates[type].length === 0) {
+                    alert('請選擇至少一個日期！');
+                    return;
+                }
+                dates = selectedDates[type];
+            } else {
+                const date = document.getElementById(`${type}Date`).value;
+                if (!date) {
+                    alert('請選擇日期！');
+                    return;
+                }
+                dates = [date];
+            }
             
-            tasks[type].push(task);
+            const grade = type === 'course' ? document.getElementById('courseGrade').value : null;
+            
+            // 為每個選擇的日期建立任務
+            dates.forEach(date => {
+                const task = {
+                    id: Date.now() + Math.random(),
+                    title,
+                    subtitle: subtitle || '無副標題',
+                    date,
+                    description: description || '無詳細說明',
+                    completed: false,
+                    grade: grade
+                };
+                
+                tasks[type].push(task);
+            });
             
             // 清除表單
             document.getElementById(`${type}Title`).value = '';
             document.getElementById(`${type}Subtitle`).value = '';
             document.getElementById(`${type}Description`).value = '';
             
+            if (type === 'class' || type === 'school') {
+                selectedDates[type] = [];
+                updateSelectedDates(type);
+            }
+            
             updateTaskLists();
             renderCalendar();
-            alert('✅ 任務新增成功！');
+            alert(`✅ 任務新增成功！已建立 ${dates.length} 個任務。`);
         }
 
         function toggleTask(type, id) {
@@ -964,255 +1087,6 @@
             selectElement.innerHTML = html;
         }
 
-        // 批次事件相關功能
-        function toggleDateSelection() {
-            isDateSelectionMode = !isDateSelectionMode;
-            const toggleBtn = document.getElementById('dateSelectionToggle');
-            const batchCalendar = document.getElementById('batchCalendar');
-            
-            if (isDateSelectionMode) {
-                toggleBtn.textContent = '✅ 完成選擇';
-                toggleBtn.className = 'btn btn-success';
-                batchCalendar.style.display = 'block';
-                document.getElementById('dateSelectionHint').textContent = '在日曆中點擊多個日期，再次點擊可取消選擇';
-            } else {
-                toggleBtn.textContent = '📅 開始選擇日期';
-                toggleBtn.className = 'btn';
-                batchCalendar.style.display = 'none';
-                document.getElementById('dateSelectionHint').textContent = '點擊「開始選擇日期」後，在下方日曆中點擊多個日期來選擇';
-            }
-            
-            renderBatchCalendar();
-            updateBatchPreview();
-        }
-
-        function renderBatchCalendar() {
-            const year = batchCurrentDate.getFullYear();
-            const month = batchCurrentDate.getMonth();
-            
-            document.getElementById('batchCurrentMonth').textContent = 
-                `${year}年 ${month + 1}月`;
-            
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startingDayOfWeek = firstDay.getDay();
-            
-            let html = '';
-            const dayHeaders = ['日', '一', '二', '三', '四', '五', '六'];
-            
-            // 添加星期標題
-            dayHeaders.forEach(day => {
-                html += `<div class="calendar-day-header">${day}</div>`;
-            });
-            
-            // 添加前月剩餘天數
-            const prevMonth = new Date(year, month, 0);
-            const prevMonthDays = prevMonth.getDate();
-            for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-                const day = prevMonthDays - i;
-                html += `<div class="calendar-day other-month">
-                    <div class="day-number">${day}</div>
-                </div>`;
-            }
-            
-            // 添加本月天數
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const isSelected = selectedDates.includes(dateStr);
-                const selectableClass = isDateSelectionMode ? 'batch-selectable' : '';
-                const selectedClass = isSelected ? 'batch-selected' : '';
-                
-                html += `<div class="calendar-day ${selectableClass} ${selectedClass}" onclick="toggleDateInBatch('${dateStr}')">
-                    <div class="day-number">${day}</div>
-                </div>`;
-            }
-            
-            // 添加下月開始天數
-            const totalCells = Math.ceil((daysInMonth + startingDayOfWeek) / 7) * 7;
-            const remainingCells = totalCells - (daysInMonth + startingDayOfWeek);
-            for (let day = 1; day <= remainingCells; day++) {
-                html += `<div class="calendar-day other-month">
-                    <div class="day-number">${day}</div>
-                </div>`;
-            }
-            
-            document.getElementById('batchCalendarGrid').innerHTML = html;
-        }
-
-        function toggleDateInBatch(dateStr) {
-            if (!isDateSelectionMode) return;
-            
-            const index = selectedDates.indexOf(dateStr);
-            if (index > -1) {
-                selectedDates.splice(index, 1);
-            } else {
-                selectedDates.push(dateStr);
-            }
-            
-            selectedDates.sort();
-            updateSelectedDatesList();
-            renderBatchCalendar();
-            updateBatchPreview();
-        }
-
-        function updateSelectedDatesList() {
-            const container = document.getElementById('selectedDatesList');
-            let html = '';
-            
-            if (selectedDates.length === 0) {
-                html = '<div style="color: #718096; text-align: center; padding: 10px;">尚未選擇日期</div>';
-            } else {
-                selectedDates.forEach(date => {
-                    const dateObj = new Date(date);
-                    const displayDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-                    html += `
-                        <div class="selected-date-item">
-                            ${displayDate}
-                            <button class="remove-date" onclick="removeSelectedDate('${date}')">×</button>
-                        </div>
-                    `;
-                });
-            }
-            
-            container.innerHTML = html;
-        }
-
-        function removeSelectedDate(dateStr) {
-            const index = selectedDates.indexOf(dateStr);
-            if (index > -1) {
-                selectedDates.splice(index, 1);
-                updateSelectedDatesList();
-                renderBatchCalendar();
-                updateBatchPreview();
-            }
-        }
-
-        function clearSelectedDates() {
-            selectedDates = [];
-            updateSelectedDatesList();
-            renderBatchCalendar();
-            updateBatchPreview();
-        }
-
-        function toggleBatchGradeField() {
-            const type = document.getElementById('batchType').value;
-            const gradeGroup = document.getElementById('batchGradeGroup');
-            
-            if (type === 'course') {
-                gradeGroup.style.display = 'block';
-            } else {
-                gradeGroup.style.display = 'none';
-            }
-        }
-
-        function updateBatchPreview() {
-            const title = document.getElementById('batchTitle').value.trim();
-            const subtitle = document.getElementById('batchSubtitle').value.trim();
-            const description = document.getElementById('batchDescription').value.trim();
-            const type = document.getElementById('batchType').value;
-            const grade = document.getElementById('batchGrade').value;
-            
-            const previewContainer = document.getElementById('batchPreview');
-            
-            if (selectedDates.length === 0 || !title) {
-                previewContainer.innerHTML = '<p style="text-align: center; color: #718096;">選擇日期和填寫內容後，這裡會顯示批次操作預覽</p>';
-                return;
-            }
-            
-            const typeNames = {
-                'class': '🏫 班級事務',
-                'school': '🎯 學年事務',
-                'course': '📚 課務提醒'
-            };
-            
-            let html = `
-                <h4 style="margin-bottom: 15px; color: #4a5568;">
-                    將在 ${selectedDates.length} 個日期新增「${typeNames[type]}」
-                </h4>
-            `;
-            
-            selectedDates.forEach(date => {
-                const gradeInfo = type === 'course' ? `[${grade}] ` : '';
-                html += `
-                    <div class="batch-preview-item">
-                        <div>
-                            <div style="font-weight: bold; color: #4a5568;">
-                                📅 ${date} - ${gradeInfo}${title}
-                            </div>
-                            <div style="color: #718096; font-size: 14px;">
-                                ${subtitle || '無副標題'} | ${description || '無詳細說明'}
-                            </div>
-                        </div>
-                        <div style="color: #48bb78; font-weight: bold;">待新增</div>
-                    </div>
-                `;
-            });
-            
-            previewContainer.innerHTML = html;
-        }
-
-        function addBatchEvents() {
-            const title = document.getElementById('batchTitle').value.trim();
-            const subtitle = document.getElementById('batchSubtitle').value.trim();
-            const description = document.getElementById('batchDescription').value.trim();
-            const type = document.getElementById('batchType').value;
-            const grade = document.getElementById('batchGrade').value;
-            
-            if (!title) {
-                alert('請填入事務標題！');
-                return;
-            }
-            
-            if (selectedDates.length === 0) {
-                alert('請選擇至少一個日期！');
-                return;
-            }
-            
-            const addedCount = selectedDates.length;
-            
-            selectedDates.forEach(date => {
-                const task = {
-                    id: Date.now() + Math.random(),
-                    title,
-                    subtitle: subtitle || '無副標題',
-                    date,
-                    description: description || '無詳細說明',
-                    completed: false,
-                    grade: type === 'course' ? grade : null
-                };
-                
-                tasks[type].push(task);
-            });
-            
-            // 清除表單和選擇的日期
-            document.getElementById('batchTitle').value = '';
-            document.getElementById('batchSubtitle').value = '';
-            document.getElementById('batchDescription').value = '';
-            clearSelectedDates();
-            
-            // 關閉日期選擇模式
-            if (isDateSelectionMode) {
-                toggleDateSelection();
-            }
-            
-            updateTaskLists();
-            renderCalendar();
-            updateBatchPreview();
-            
-            alert(`✅ 成功批次新增 ${addedCount} 個事件！`);
-        }
-
-        function prevMonthBatch() {
-            batchCurrentDate.setMonth(batchCurrentDate.getMonth() - 1);
-            renderBatchCalendar();
-        }
-
-        function nextMonthBatch() {
-            batchCurrentDate.setMonth(batchCurrentDate.getMonth() + 1);
-            renderBatchCalendar();
-        }
-
         // 點擊模態框外部關閉
         window.onclick = function(event) {
             const modal = document.getElementById('eventModal');
@@ -1260,11 +1134,6 @@
 
         // 可選：載入示例資料
         // initializeSampleData();
-
-        // 確保批次日曆初始化
-        setTimeout(() => {
-            toggleBatchGradeField();
-        }, 100);
     </script>
 </body>
 </html>
