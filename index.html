@@ -964,165 +964,253 @@
             selectElement.innerHTML = html;
         }
 
-        // 檔案上傳功能
-        function setupFileUpload() {
-            const fileUpload = document.getElementById('fileUpload');
-            const fileInput = document.getElementById('fileInput');
+        // 批次事件相關功能
+        function toggleDateSelection() {
+            isDateSelectionMode = !isDateSelectionMode;
+            const toggleBtn = document.getElementById('dateSelectionToggle');
+            const batchCalendar = document.getElementById('batchCalendar');
             
-            // 點擊上傳區域
-            fileUpload.addEventListener('click', function(e) {
-                if (e.target === fileUpload || e.target.closest('#fileUpload')) {
-                    fileInput.click();
-                }
-            });
-            
-            // 檔案選擇
-            fileInput.addEventListener('change', function(e) {
-                handleFiles(Array.from(e.target.files));
-            });
-            
-            // 拖拽功能
-            fileUpload.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                fileUpload.classList.add('dragover');
-            });
-            
-            fileUpload.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                fileUpload.classList.remove('dragover');
-            });
-            
-            fileUpload.addEventListener('drop', function(e) {
-                e.preventDefault();
-                fileUpload.classList.remove('dragover');
-                handleFiles(Array.from(e.dataTransfer.files));
-            });
-        }
-
-        function handleFiles(files) {
-            files.forEach(file => {
-                const fileObj = {
-                    id: Date.now() + Math.random(),
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                    uploadDate: new Date().toLocaleString('zh-TW'),
-                    file: file
-                };
-                
-                uploadedFiles.push(fileObj);
-            });
-            
-            updateFileList();
-            
-            // 模擬處理不同檔案類型
-            files.forEach(file => {
-                processFile(file);
-            });
-        }
-
-        function processFile(file) {
-            const fileName = file.name.toLowerCase();
-            
-            if (fileName.endsWith('.docx')) {
-                console.log('處理 Word 文件:', file.name);
-                // 這裡可以使用 mammoth.js 處理 Word 文件
-                alert(`📄 Word 文件 "${file.name}" 上傳成功！\n建議手動將內容轉換為任務事項。`);
-            } else if (fileName.endsWith('.xlsx')) {
-                console.log('處理 Excel 檔案:', file.name);
-                // 這裡可以使用 SheetJS 處理 Excel 檔案
-                alert(`📊 Excel 檔案 "${file.name}" 上傳成功！\n可將工作表內容導入為批次任務。`);
-            } else if (fileName.endsWith('.pdf')) {
-                console.log('處理 PDF 檔案:', file.name);
-                alert(`📕 PDF 檔案 "${file.name}" 上傳成功！\n已儲存為參考文件。`);
-            } else if (file.type.startsWith('image/')) {
-                console.log('處理圖片檔案:', file.name);
-                alert(`🖼️ 圖片檔案 "${file.name}" 上傳成功！\n已加入媒體庫。`);
+            if (isDateSelectionMode) {
+                toggleBtn.textContent = '✅ 完成選擇';
+                toggleBtn.className = 'btn btn-success';
+                batchCalendar.style.display = 'block';
+                document.getElementById('dateSelectionHint').textContent = '在日曆中點擊多個日期，再次點擊可取消選擇';
             } else {
-                console.log('處理文字檔案:', file.name);
-                alert(`📝 檔案 "${file.name}" 上傳成功！\n已儲存為參考文件。`);
+                toggleBtn.textContent = '📅 開始選擇日期';
+                toggleBtn.className = 'btn';
+                batchCalendar.style.display = 'none';
+                document.getElementById('dateSelectionHint').textContent = '點擊「開始選擇日期」後，在下方日曆中點擊多個日期來選擇';
             }
+            
+            renderBatchCalendar();
+            updateBatchPreview();
         }
 
-        function updateFileList() {
-            const fileListElement = document.getElementById('fileList');
+        function renderBatchCalendar() {
+            const year = batchCurrentDate.getFullYear();
+            const month = batchCurrentDate.getMonth();
+            
+            document.getElementById('batchCurrentMonth').textContent = 
+                `${year}年 ${month + 1}月`;
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+            
+            let html = '';
+            const dayHeaders = ['日', '一', '二', '三', '四', '五', '六'];
+            
+            // 添加星期標題
+            dayHeaders.forEach(day => {
+                html += `<div class="calendar-day-header">${day}</div>`;
+            });
+            
+            // 添加前月剩餘天數
+            const prevMonth = new Date(year, month, 0);
+            const prevMonthDays = prevMonth.getDate();
+            for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+                const day = prevMonthDays - i;
+                html += `<div class="calendar-day other-month">
+                    <div class="day-number">${day}</div>
+                </div>`;
+            }
+            
+            // 添加本月天數
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isSelected = selectedDates.includes(dateStr);
+                const selectableClass = isDateSelectionMode ? 'batch-selectable' : '';
+                const selectedClass = isSelected ? 'batch-selected' : '';
+                
+                html += `<div class="calendar-day ${selectableClass} ${selectedClass}" onclick="toggleDateInBatch('${dateStr}')">
+                    <div class="day-number">${day}</div>
+                </div>`;
+            }
+            
+            // 添加下月開始天數
+            const totalCells = Math.ceil((daysInMonth + startingDayOfWeek) / 7) * 7;
+            const remainingCells = totalCells - (daysInMonth + startingDayOfWeek);
+            for (let day = 1; day <= remainingCells; day++) {
+                html += `<div class="calendar-day other-month">
+                    <div class="day-number">${day}</div>
+                </div>`;
+            }
+            
+            document.getElementById('batchCalendarGrid').innerHTML = html;
+        }
+
+        function toggleDateInBatch(dateStr) {
+            if (!isDateSelectionMode) return;
+            
+            const index = selectedDates.indexOf(dateStr);
+            if (index > -1) {
+                selectedDates.splice(index, 1);
+            } else {
+                selectedDates.push(dateStr);
+            }
+            
+            selectedDates.sort();
+            updateSelectedDatesList();
+            renderBatchCalendar();
+            updateBatchPreview();
+        }
+
+        function updateSelectedDatesList() {
+            const container = document.getElementById('selectedDatesList');
             let html = '';
             
-            if (uploadedFiles.length === 0) {
-                html = '<p style="text-align: center; color: #718096; padding: 20px;">尚未上傳任何檔案</p>';
+            if (selectedDates.length === 0) {
+                html = '<div style="color: #718096; text-align: center; padding: 10px;">尚未選擇日期</div>';
             } else {
-                html = '<h4 style="margin-bottom: 15px; color: #4a5568;">📁 已上傳檔案</h4>';
-                
-                uploadedFiles.forEach(file => {
-                    const sizeText = formatFileSize(file.size);
-                    const fileIcon = getFileIcon(file.name);
-                    
+                selectedDates.forEach(date => {
+                    const dateObj = new Date(date);
+                    const displayDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
                     html += `
-                        <div class="file-item">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 20px;">${fileIcon}</span>
-                                <div>
-                                    <div style="font-weight: bold;">${file.name}</div>
-                                    <div style="font-size: 12px; color: #718096;">
-                                        ${sizeText} • ${file.uploadDate}
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <button class="btn btn-warning" onclick="downloadFile(${file.id})" style="padding: 5px 10px; font-size: 12px;">
-                                    💾 下載
-                                </button>
-                                <button class="btn btn-danger" onclick="deleteFile(${file.id})" style="padding: 5px 10px; font-size: 12px;">
-                                    🗑️ 刪除
-                                </button>
-                            </div>
+                        <div class="selected-date-item">
+                            ${displayDate}
+                            <button class="remove-date" onclick="removeSelectedDate('${date}')">×</button>
                         </div>
                     `;
                 });
             }
             
-            fileListElement.innerHTML = html;
+            container.innerHTML = html;
         }
 
-        function getFileIcon(filename) {
-            const ext = filename.toLowerCase().split('.').pop();
-            const icons = {
-                'docx': '📄', 'doc': '📄',
-                'xlsx': '📊', 'xls': '📊',
-                'pdf': '📕',
-                'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
-                'txt': '📝', 'csv': '📝'
+        function removeSelectedDate(dateStr) {
+            const index = selectedDates.indexOf(dateStr);
+            if (index > -1) {
+                selectedDates.splice(index, 1);
+                updateSelectedDatesList();
+                renderBatchCalendar();
+                updateBatchPreview();
+            }
+        }
+
+        function clearSelectedDates() {
+            selectedDates = [];
+            updateSelectedDatesList();
+            renderBatchCalendar();
+            updateBatchPreview();
+        }
+
+        function toggleBatchGradeField() {
+            const type = document.getElementById('batchType').value;
+            const gradeGroup = document.getElementById('batchGradeGroup');
+            
+            if (type === 'course') {
+                gradeGroup.style.display = 'block';
+            } else {
+                gradeGroup.style.display = 'none';
+            }
+        }
+
+        function updateBatchPreview() {
+            const title = document.getElementById('batchTitle').value.trim();
+            const subtitle = document.getElementById('batchSubtitle').value.trim();
+            const description = document.getElementById('batchDescription').value.trim();
+            const type = document.getElementById('batchType').value;
+            const grade = document.getElementById('batchGrade').value;
+            
+            const previewContainer = document.getElementById('batchPreview');
+            
+            if (selectedDates.length === 0 || !title) {
+                previewContainer.innerHTML = '<p style="text-align: center; color: #718096;">選擇日期和填寫內容後，這裡會顯示批次操作預覽</p>';
+                return;
+            }
+            
+            const typeNames = {
+                'class': '🏫 班級事務',
+                'school': '🎯 學年事務',
+                'course': '📚 課務提醒'
             };
-            return icons[ext] || '📄';
+            
+            let html = `
+                <h4 style="margin-bottom: 15px; color: #4a5568;">
+                    將在 ${selectedDates.length} 個日期新增「${typeNames[type]}」
+                </h4>
+            `;
+            
+            selectedDates.forEach(date => {
+                const gradeInfo = type === 'course' ? `[${grade}] ` : '';
+                html += `
+                    <div class="batch-preview-item">
+                        <div>
+                            <div style="font-weight: bold; color: #4a5568;">
+                                📅 ${date} - ${gradeInfo}${title}
+                            </div>
+                            <div style="color: #718096; font-size: 14px;">
+                                ${subtitle || '無副標題'} | ${description || '無詳細說明'}
+                            </div>
+                        </div>
+                        <div style="color: #48bb78; font-weight: bold;">待新增</div>
+                    </div>
+                `;
+            });
+            
+            previewContainer.innerHTML = html;
         }
 
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-
-        function downloadFile(fileId) {
-            const file = uploadedFiles.find(f => f.id === fileId);
-            if (file) {
-                const url = URL.createObjectURL(file.file);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = file.name;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+        function addBatchEvents() {
+            const title = document.getElementById('batchTitle').value.trim();
+            const subtitle = document.getElementById('batchSubtitle').value.trim();
+            const description = document.getElementById('batchDescription').value.trim();
+            const type = document.getElementById('batchType').value;
+            const grade = document.getElementById('batchGrade').value;
+            
+            if (!title) {
+                alert('請填入事務標題！');
+                return;
             }
+            
+            if (selectedDates.length === 0) {
+                alert('請選擇至少一個日期！');
+                return;
+            }
+            
+            const addedCount = selectedDates.length;
+            
+            selectedDates.forEach(date => {
+                const task = {
+                    id: Date.now() + Math.random(),
+                    title,
+                    subtitle: subtitle || '無副標題',
+                    date,
+                    description: description || '無詳細說明',
+                    completed: false,
+                    grade: type === 'course' ? grade : null
+                };
+                
+                tasks[type].push(task);
+            });
+            
+            // 清除表單和選擇的日期
+            document.getElementById('batchTitle').value = '';
+            document.getElementById('batchSubtitle').value = '';
+            document.getElementById('batchDescription').value = '';
+            clearSelectedDates();
+            
+            // 關閉日期選擇模式
+            if (isDateSelectionMode) {
+                toggleDateSelection();
+            }
+            
+            updateTaskLists();
+            renderCalendar();
+            updateBatchPreview();
+            
+            alert(`✅ 成功批次新增 ${addedCount} 個事件！`);
         }
 
-        function deleteFile(fileId) {
-            if (confirm('確定要刪除此檔案嗎？')) {
-                uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
-                updateFileList();
-            }
+        function prevMonthBatch() {
+            batchCurrentDate.setMonth(batchCurrentDate.getMonth() - 1);
+            renderBatchCalendar();
+        }
+
+        function nextMonthBatch() {
+            batchCurrentDate.setMonth(batchCurrentDate.getMonth() + 1);
+            renderBatchCalendar();
         }
 
         // 點擊模態框外部關閉
@@ -1172,6 +1260,11 @@
 
         // 可選：載入示例資料
         // initializeSampleData();
+
+        // 確保批次日曆初始化
+        setTimeout(() => {
+            toggleBatchGradeField();
+        }, 100);
     </script>
 </body>
 </html>
