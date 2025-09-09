@@ -1038,7 +1038,6 @@
             });
         }
 
-        // 年段管理功能
         function addGrade() {
             const newGrade = document.getElementById('newGrade').value.trim();
             if (!newGrade) {
@@ -1054,6 +1053,7 @@
             grades.push(newGrade);
             updateGradeList();
             updateGradeSelect();
+            saveAllData(); // 儲存變更
             document.getElementById('newGrade').value = '';
         }
 
@@ -1065,8 +1065,144 @@
                 
                 updateGradeList();
                 updateGradeSelect();
+                saveAllData(); // 儲存變更
                 updateTaskLists();
                 renderCalendar();
+            }
+        }
+
+        // 資料管理相關功能
+        function manualSave() {
+            const success = saveAllData();
+            if (success) {
+                alert('✅ 資料已手動儲存！');
+                updateSaveStatus();
+            } else {
+                alert('❌ 資料儲存失敗，請嘗試匯出備份。');
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ 警告：此操作將刪除所有資料且無法復原！\n\n確定要繼續嗎？')) {
+                if (confirm('🚨 最後確認：您確定要清除所有資料嗎？\n\n建議先匯出備份再進行此操作。')) {
+                    // 清除所有資料
+                    tasks = { class: [], school: [], course: [] };
+                    grades = ['G12', 'G10', 'G7'];
+                    selectedDates = { class: [], school: [] };
+                    lineSettings = { token: '', groupId: '', notificationTime: 8, enabled: false };
+                    notificationLogs = [];
+                    holidays = {};
+                    
+                    // 清除本地儲存
+                    try {
+                        if (typeof(Storage) !== "undefined" && window.localStorage) {
+                            window.localStorage.removeItem('schoolCalendarData_' + window.location.pathname);
+                        }
+                    } catch (error) {
+                        console.error('清除 localStorage 失敗:', error);
+                    }
+                    
+                    // 重新載入假日資料
+                    loadStaticHolidays(new Date().getFullYear());
+                    
+                    // 重新渲染介面
+                    updateTaskLists();
+                    updateGradeList();
+                    updateGradeSelect();
+                    loadLINESettings();
+                    renderCalendar();
+                    updateSaveStatus();
+                    updateDataStats();
+                    
+                    alert('✅ 所有資料已清除完成！');
+                }
+            }
+        }
+
+        function updateSaveStatus() {
+            const statusElement = document.getElementById('saveStatus');
+            if (!statusElement) return;
+            
+            try {
+                if (typeof(Storage) !== "undefined" && window.localStorage) {
+                    const data = window.localStorage.getItem('schoolCalendarData_' + window.location.pathname);
+                    if (data) {
+                        const parsedData = JSON.parse(data);
+                        const lastSaved = new Date(parsedData.timestamp);
+                        statusElement.innerHTML = `
+                            ✅ 自動儲存：已啟用<br>
+                            📅 最後儲存：${lastSaved.toLocaleString('zh-TW')}<br>
+                            📊 資料大小：${(data.length / 1024).toFixed(2)} KB
+                        `;
+                        statusElement.style.background = '#d4edda';
+                        statusElement.style.color = '#155724';
+                    } else {
+                        statusElement.innerHTML = '⚠️ 尚未儲存任何資料';
+                        statusElement.style.background = '#fff3cd';
+                        statusElement.style.color = '#856404';
+                    }
+                } else {
+                    statusElement.innerHTML = '❌ 瀏覽器不支援本地儲存';
+                    statusElement.style.background = '#f8d7da';
+                    statusElement.style.color = '#721c24';
+                }
+            } catch (error) {
+                statusElement.innerHTML = '❌ 儲存狀態檢查失敗';
+                statusElement.style.background = '#f8d7da';
+                statusElement.style.color = '#721c24';
+            }
+        }
+
+        function updateDataStats() {
+            const statsElement = document.getElementById('dataStats');
+            if (!statsElement) return;
+            
+            const totalTasks = Object.values(tasks).reduce((sum, taskArray) => sum + taskArray.length, 0);
+            const completedTasks = Object.values(tasks).reduce((sum, taskArray) => 
+                sum + taskArray.filter(task => task.completed).length, 0);
+            
+            const stats = [
+                { label: '總任務數', value: totalTasks, icon: '📋' },
+                { label: '已完成', value: completedTasks, icon: '✅' },
+                { label: '進行中', value: totalTasks - completedTasks, icon: '🔄' },
+                { label: '班級事務', value: tasks.class.length, icon: '🏫' },
+                { label: '學年事務', value: tasks.school.length, icon: '🎯' },
+                { label: '課務提醒', value: tasks.course.length, icon: '📚' },
+                { label: '管理年段', value: grades.length, icon: '🎓' },
+                { label: '通知記錄', value: notificationLogs.length, icon: '📱' }
+            ];
+            
+            let html = '';
+            stats.forEach(stat => {
+                html += `
+                    <div class="task-item">
+                        <div class="task-content">
+                            <div class="task-title">${stat.icon} ${stat.label}</div>
+                            <div class="task-subtitle">共 ${stat.value} 項</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            statsElement.innerHTML = html;
+        }
+
+        // 修改 showSection 函數以更新資料管理頁面
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(sectionId).classList.add('active');
+            event.target.classList.add('active');
+            
+            // 如果切換到資料管理頁面，更新狀態
+            if (sectionId === 'data') {
+                updateSaveStatus();
+                updateDataStats();
             }
         }
 
