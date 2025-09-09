@@ -905,11 +905,21 @@
 
         function prevMonth() {
             currentDate.setMonth(currentDate.getMonth() - 1);
+            // 如果換到不同年份，重新載入假日資料
+            const newYear = currentDate.getFullYear();
+            if (!holidays[`${newYear}-01-01`]) {
+                loadStaticHolidays(newYear);
+            }
             renderCalendar();
         }
 
         function nextMonth() {
             currentDate.setMonth(currentDate.getMonth() + 1);
+            // 如果換到不同年份，重新載入假日資料
+            const newYear = currentDate.getFullYear();
+            if (!holidays[`${newYear}-01-01`]) {
+                loadStaticHolidays(newYear);
+            }
             renderCalendar();
         }
 
@@ -1085,6 +1095,202 @@
             });
             
             selectElement.innerHTML = html;
+        }
+
+        // LINE 通知功能
+        function saveLINESettings() {
+            const token = document.getElementById('lineToken').value.trim();
+            const groupId = document.getElementById('lineGroupId').value.trim();
+            const notificationTime = parseInt(document.getElementById('notificationTime').value);
+            const enabled = document.getElementById('enableNotification').checked;
+            
+            if (enabled && (!token || !groupId)) {
+                alert('請填入 LINE Bot Token 和群組/使用者 ID！');
+                return;
+            }
+            
+            lineSettings = {
+                token,
+                groupId,
+                notificationTime,
+                enabled
+            };
+            
+            // 儲存到本地
+            localStorage.setItem('lineSettings', JSON.stringify(lineSettings));
+            
+            alert('✅ LINE 通知設定已儲存！');
+        }
+
+        function loadLINESettings() {
+            const saved = localStorage.getItem('lineSettings');
+            if (saved) {
+                lineSettings = JSON.parse(saved);
+                document.getElementById('lineToken').value = lineSettings.token || '';
+                document.getElementById('lineGroupId').value = lineSettings.groupId || '';
+                document.getElementById('notificationTime').value = lineSettings.notificationTime || 8;
+                document.getElementById('enableNotification').checked = lineSettings.enabled || false;
+            }
+            updateNotificationLog();
+        }
+
+        async function sendLINEMessage(message) {
+            if (!lineSettings.token || !lineSettings.groupId) {
+                throw new Error('LINE 設定未完成');
+            }
+
+            const response = await fetch('https://api.line.me/v2/bot/message/push', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${lineSettings.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    to: lineSettings.groupId,
+                    messages: [{
+                        type: 'text',
+                        text: message
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`LINE API 錯誤: ${response.status}`);
+            }
+
+            return response.json();
+        }
+
+        async function testLINENotification() {
+            try {
+                const message = `🧪 測試通知\n\n這是來自學校行事曆管理系統的測試訊息。\n\n時間: ${new Date().toLocaleString('zh-TW')}`;
+                
+                await sendLINEMessage(message);
+                
+                // 記錄通知
+                addNotificationLog('測試通知', '成功', message);
+                
+                alert('✅ 測試通知發送成功！請檢查 LINE 群組。');
+            } catch (error) {
+                console.error('測試通知失敗:', error);
+                addNotificationLog('測試通知', '失敗', error.message);
+                alert(`❌ 測試通知失敗: ${error.message}`);
+            }
+        }
+
+        function checkDailyNotifications() {
+            if (!lineSettings.enabled) return;
+
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const today = now.toISOString().split('T')[0];
+            
+            // 只在設定的小時的00分時執行
+            if (currentMinute !== 0) return;
+            
+            let targetDate = today;
+            
+            // 如果是前一天提醒，調整日期
+            if (lineSettings.notificationTime === 18) {
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                targetDate = tomorrow.toISOString().split('T')[0];
+            }
+            
+            // 檢查是否該發送通知
+            if (currentHour === lineSettings.notificationTime) {
+                sendDailyNotification(targetDate);
+            }
+        }
+
+        async function sendDailyNotification(dateStr) {
+            try {
+                const dayTasks = getDayTasks(dateStr);
+                
+                if (dayTasks.length === 0) return; // 沒有任務就不發送
+                
+                let message = `📅 ${dateStr} 行事曆提醒\n\n`;
+                
+                const typeNames = {
+                    'class': '🏫 班級事務',
+                    'school': '🎯 學年事務',
+                    'course': '📚 課務提醒'
+                };
+                
+                dayTasks.forEach((task, index) => {
+                    const gradeInfo = task.grade ? `[${task.grade}] ` : '';
+                    message += `${index + 1}. ${typeNames[task.type]}\n`;
+                    message += `   📝 ${gradeInfo}${task.title}\n`;
+                    message += `   💭 ${task.subtitle}\n`;
+                    if (task.description && task.description !== '無詳細說明') {
+                        message += `   📋 ${task.description}\n`;
+                    }
+                    message += '\n';
+                });
+                
+                message += '⏰ 請記得完成相關事務！';
+                
+                await sendLINEMessage(message);
+                
+                // 記錄通知
+                addNotificationLog(`每日提醒 (${dateStr})`, '成功', `發送 ${dayTasks.length} 項事務提醒`);
+                
+            } catch (error) {
+                console.error('每日通知失敗:', error);
+                addNotificationLog(`每日提醒 (${dateStr})`, '失敗', error.message);
+            }
+        }
+
+        function addNotificationLog(type, status, details) {
+            const log = {
+                id: Date.now(),
+                type,
+                status,
+                details,
+                time: new Date().toLocaleString('zh-TW')
+            };
+            
+            notificationLogs.unshift(log); // 新的記錄放在前面
+            
+            // 只保留最近50筆記錄
+            if (notificationLogs.length > 50) {
+                notificationLogs = notificationLogs.slice(0, 50);
+            }
+            
+            updateNotificationLog();
+        }
+
+        function updateNotificationLog() {
+            const logElement = document.getElementById('notificationLog');
+            
+            if (notificationLogs.length === 0) {
+                logElement.innerHTML = '<p style="text-align: center; color: #718096; padding: 20px;">暫無通知記錄</p>';
+                return;
+            }
+            
+            let html = '';
+            notificationLogs.forEach(log => {
+                const statusClass = log.status === '成功' ? 'btn-success' : 'btn-danger';
+                const statusIcon = log.status === '成功' ? '✅' : '❌';
+                
+                html += `
+                    <div class="task-item">
+                        <div class="task-content">
+                            <div class="task-title">${log.type}</div>
+                            <div class="task-subtitle">${log.details}</div>
+                            <div class="task-date">🕒 ${log.time}</div>
+                        </div>
+                        <div class="task-actions">
+                            <span class="btn ${statusClass}" style="cursor: default;">
+                                ${statusIcon} ${log.status}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            logElement.innerHTML = html;
         }
 
         // 點擊模態框外部關閉
